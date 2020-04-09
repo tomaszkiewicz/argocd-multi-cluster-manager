@@ -1,0 +1,46 @@
+{{- define "helmApplication" }}
+{{- $name := index .app "name" }}
+{{- if and (not $name) (index .app "addon") }}
+{{- $name = .app.addon }}
+{{- end }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name }}-{{ .cluster.name }}
+  namespace: argocd
+  {{- if and (index .app "cascadeDelete") }}
+    {{- if .app.cascadeDelete }}
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+    {{- end }}
+  {{- end }}
+spec:
+  project: {{ .cluster.name }}
+  source:
+{{- $addon := index .app "addon" }}
+{{- if $addon }}
+{{- $addonSettings := data.YAML (file.Read (printf "addons/%s.yaml" $addon)) }}
+    repoURL: {{ $addonSettings.repoURL }}
+    path: {{ $addonSettings.path }}
+    {{- $targetRevision := index $addonSettings "targetRevision" }}
+    {{- if $targetRevision }}
+    targetRevision: {{ $targetRevision }}
+    {{- end }}
+    helm:
+      {{- $releaseName := index $addonSettings "releaseName" }}
+      {{- if not $releaseName }}
+      {{- $releaseName = $name }}
+      {{- end }}
+      releaseName: {{ $releaseName }}
+      values: |
+{{ $addonSettings.values | data.ToYAML | indent 8 }}
+  destination:
+    server: {{ .cluster.server }}
+    {{- $namespace := index $addonSettings "namespace" }}
+    {{- if not $namespace }}
+      {{- $namespace = $name }}
+    {{- end }}
+    namespace: {{ $namespace }}
+{{- end }}
+---
+{{- end }}

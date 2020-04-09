@@ -1,0 +1,28 @@
+{{- $templatesDir := (datasource "templates") }}
+{{ tmpl.Inline (file.Read (printf "%s/templates/helm-application.yaml" (ds "templates"))) . }}
+{{ tmpl.Inline (file.Read (printf "%s/templates/kustomize-application.yaml" (ds "templates"))) . }}
+
+{{- range (file.ReadDir "clusters") }}
+  {{- $clusterConfigFile := printf "clusters/%s/cluster.yaml" . }}
+  {{- if file.Exists $clusterConfigFile }}
+# Detected cluster in {{.}}{{ "\n" }}
+    {{- $settings := data.YAML (file.Read $clusterConfigFile) }}
+# Cluster name: {{ $settings.cluster.name }}{{ "\n" }}
+# BEGIN helm applications
+    {{- $helmApplications := index $settings "helmApplications" }}
+    {{- if $helmApplications }}
+      {{- range $helmApplications }}
+        {{ template "helmApplication"  (dict "cluster" $settings.cluster "app" .) }}
+      {{- end }}
+    {{- end }}
+# END helm applications
+# BEGIN kustomize applications
+    {{- $kustomizeApplications := index $settings "kustomizeApplications" }}
+    {{- if $kustomizeApplications }}
+      {{- range $kustomizeApplications }}
+        {{- template "kustomizeApplication" (dict "cluster" $settings.cluster "app" .) }}
+      {{- end }}
+    {{- end }}
+# END kustomize applications
+  {{- end }}
+{{- end}}

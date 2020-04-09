@@ -1,0 +1,36 @@
+{{- define "kustomizeApplication" }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .app.name }}-{{ .cluster.name }}
+  namespace: argocd
+  {{- if and (index .app "cascadeDelete") }}
+    {{- if .app.cascadeDelete }}
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+    {{- end }}
+  {{- end }}
+spec:
+  project: {{ .cluster.name }}
+  source:
+  {{- $repoUrl := index .app "repoURL" }}
+  {{- $clusterRepoUrl := index .cluster "repoURL" }}
+  {{- if and (not $repoUrl) $clusterRepoUrl }}
+  {{- $repoUrl = $clusterRepoUrl }}
+  {{- end }}
+    repoURL: {{ $repoUrl }}
+    path: {{ .app.path }}
+  destination:
+    server: {{ .cluster.server }}
+    namespace: default
+    {{- $disableAutoSync := index .app "disableAutoSync" }}
+    {{- $clusterDisableAutoSync := index .cluster "disableAutoSync" }}
+{{- if or $disableAutoSync $clusterDisableAutoSync }}
+{{- else }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+{{- end }}
+---
+{{- end }}
