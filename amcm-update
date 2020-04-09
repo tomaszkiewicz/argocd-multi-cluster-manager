@@ -1,0 +1,8 @@
+#!/bin/sh
+
+cwd=$(dirname $0)
+
+cd $cwd
+
+git checkout -- .
+git pull
